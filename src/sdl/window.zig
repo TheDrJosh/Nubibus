@@ -56,14 +56,18 @@ pub const WindowFlags = packed struct(u32) {
     __: u2 = 0,
 };
 
+pub const WindowError = error{
+    WindowInitFailed,
+};
+
 pub const Window = struct {
     inner: *raw.SDL_Window,
 
-    pub fn init(title: [*c]const u8, x: WindowPos, y: WindowPos, w: c_int, h: c_int, flags: WindowFlags) ?Window {
+    pub fn init(title: [*c]const u8, x: WindowPos, y: WindowPos, w: c_int, h: c_int, flags: WindowFlags) WindowError!Window {
         var inner = raw.SDL_CreateWindow(title, x.get_value(), y.get_value(), w, h, @bitCast(flags));
 
         if (inner == null) {
-            return null;
+            return error.WindowInitFailed;
         }
 
         return Window{ .inner = inner.? };

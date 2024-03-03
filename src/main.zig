@@ -5,15 +5,13 @@ const sdl = @import("sdl/sdl.zig");
 const text: [*c]const u16 = std.unicode.utf8ToUtf16LeStringLiteral("申し訳ございませんがたくさんあります。\n忘れている世界によって忘れている世界。\n汚れのない心の永遠の日差し！\nそれぞれの祈りが受け入れられ、それぞれが辞任を望む");
 
 const AppError = error{
-    WindowInitFailed,
-    RendererInitFailed,
     ImageInitFailded,
-} || sdl.InitError;
+};
 
 const App = struct {
     running: bool,
     window: sdl.window.Window,
-    renderer: *sdl.raw.SDL_Renderer,
+    renderer: sdl.renderer.Renderer,
 
     kosugi: *sdl.raw.TTF_Font,
     kosugi_tex: *sdl.raw.SDL_Texture,
@@ -21,21 +19,12 @@ const App = struct {
 
     lettuce_tex: *sdl.raw.SDL_Texture,
 
-    fn init() AppError!App {
+    fn init() !App {
         try sdl.init();
 
-        var window = sdl.window.Window.init("Nubibus", .Undefined, .Undefined, 800, 600, .{ .opengl = true, .resizable = true });
+        var window = try sdl.window.Window.init("Nubibus", .Undefined, .Undefined, 800, 600, .{ .opengl = true, .resizable = true });
 
-        if (window == null) {
-            std.debug.print("Error window creation\n", .{});
-            return error.WindowInitFailed;
-        }
-
-        var renderer = sdl.raw.SDL_CreateRenderer(window.?.inner, -1, sdl.raw.SDL_RENDERER_ACCELERATED);
-        if (renderer == null) {
-            std.debug.print("Error renderer creation\n", .{});
-            return error.RendererInitFailed;
-        }
+        var renderer = try sdl.renderer.Renderer.init(&window, -1, sdl.renderer.RendererFlags{ .accelerate = true });
 
         var lettuce_sur = sdl.raw.IMG_Load("lettuce.png");
         if (lettuce_sur == null) {
@@ -44,7 +33,7 @@ const App = struct {
         }
         defer sdl.raw.SDL_FreeSurface(lettuce_sur);
 
-        var lettuce_tex = sdl.raw.SDL_CreateTextureFromSurface(renderer, lettuce_sur);
+        var lettuce_tex = sdl.raw.SDL_CreateTextureFromSurface(renderer.inner, lettuce_sur);
         if (lettuce_tex == null) {
             std.debug.print("Error creating texture\n", .{});
             return error.ImageInitFailded;
@@ -61,12 +50,12 @@ const App = struct {
 
         const rect = sdl.raw.SDL_Rect{ .x = 50, .y = 100, .w = kosugi_sur.w, .h = kosugi_sur.h };
 
-        var kosugi_tex = sdl.raw.SDL_CreateTextureFromSurface(renderer, kosugi_sur);
+        var kosugi_tex = sdl.raw.SDL_CreateTextureFromSurface(renderer.inner, kosugi_sur);
 
         return App{
             .running = true,
-            .window = window.?,
-            .renderer = renderer.?,
+            .window = window,
+            .renderer = renderer,
             .lettuce_tex = lettuce_tex.?,
             .kosugi = kosugi.?,
             .kosugi_tex = kosugi_tex.?,
@@ -78,11 +67,11 @@ const App = struct {
         sdl.raw.SDL_DestroyTexture(self.lettuce_tex);
         sdl.raw.SDL_DestroyTexture(self.kosugi_tex);
 
-        sdl.raw.SDL_DestroyRenderer(self.renderer);
+        self.renderer.deinit();
         self.window.deinit();
         sdl.raw.TTF_CloseFont(self.kosugi);
 
-        sdl.raw.SDL_Quit();
+        sdl.quit();
     }
 
     fn on_event(self: *App, event: *sdl.raw.SDL_Event) void {
@@ -98,12 +87,12 @@ const App = struct {
     }
 
     fn on_render(self: *App) void {
-        _ = sdl.raw.SDL_RenderClear(self.renderer);
+        _ = sdl.raw.SDL_RenderClear(self.renderer.inner);
 
-        _ = sdl.raw.SDL_RenderCopy(self.renderer, self.lettuce_tex, null, null);
-        _ = sdl.raw.SDL_RenderCopy(self.renderer, self.kosugi_tex, null, &self.text_rect);
+        _ = sdl.raw.SDL_RenderCopy(self.renderer.inner, self.lettuce_tex, null, null);
+        _ = sdl.raw.SDL_RenderCopy(self.renderer.inner, self.kosugi_tex, null, &self.text_rect);
 
-        sdl.raw.SDL_RenderPresent(self.renderer);
+        sdl.raw.SDL_RenderPresent(self.renderer.inner);
     }
 
     fn execute(self: *App) void {
@@ -123,17 +112,8 @@ pub fn main() void {
     var app = App.init() catch unreachable;
     defer app.deinit();
 
-    // var thread = std.Thread.spawn(.{}, thread_stuff, .{}) catch unreachable;
-    // thread.detach();
-
-    var a = sdl.window.WindowFlags{
-        // .fullscreen = true,
-        .opengl = true,
-    };
-
-    var b: u32 = @bitCast(a);
-
-    std.debug.print("{d}\n", .{b});
+    var thread = std.Thread.spawn(.{}, thread_stuff, .{}) catch unreachable;
+    thread.detach();
 
     app.execute();
 }

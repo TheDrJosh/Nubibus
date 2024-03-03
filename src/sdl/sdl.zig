@@ -1,8 +1,8 @@
 const std = @import("std");
-
 pub const raw = @import("sdl_c.zig");
 
 pub const window = @import("window.zig");
+pub const renderer = @import("renderer.zig");
 
 pub const InitError = error{ SDLInitFailed, TTFInitFailed, ImageInitFailded };
 
